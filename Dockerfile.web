@@ -1,0 +1,19 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.22 AS build
+WORKDIR /app
+COPY . .
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go build -o /out/quran-web ./cmd/quran-web
+
+FROM gcr.io/distroless/base-debian12
+WORKDIR /srv/app
+COPY --from=build /out/quran-web /usr/local/bin/quran-web
+ENV QURAN_DB_PATH=/data/quran.db
+ENV QURAN_BIND=:8090
+VOLUME ["/data"]
+EXPOSE 8090
+USER 65532:65532
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 CMD ["/usr/local/bin/quran-web","-selfcheck"]
+ENTRYPOINT ["/usr/local/bin/quran-web"]
+

@@ -48,3 +48,9 @@ docker.down:
 
 precommit:
 	pre-commit install
+
+deploy:
+	docker compose build && docker compose up -d
+
+undeploy:
+	docker compose down -v

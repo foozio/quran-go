@@ -2,26 +2,57 @@ package main
 
 import (
   "context"
+  "flag"
   "net/http"
   "os"
+  "strconv"
+  "strings"
   "time"
 
   "github.com/gin-gonic/gin"
+  "github.com/jmoiron/sqlx"
   "github.com/foozio/quran-go/internal/db"
   "github.com/foozio/quran-go/internal/httpx"
 )
 
 func main() {
   ctx := context.Background()
+  selfcheck := flag.Bool("selfcheck", false, "run healthcheck and exit")
+  flag.Parse()
 
   bind := os.Getenv("QURAN_BIND")
   if bind == "" { bind = ":8080" }
   path := os.Getenv("QURAN_DB_PATH")
   if path == "" { path = "quran.db" }
 
+  if *selfcheck {
+    addr := bind
+    if strings.HasPrefix(bind, ":") {
+      addr = "127.0.0.1" + bind
+    } else if strings.HasPrefix(bind, "0.0.0.0:") {
+      addr = "127.0.0.1:" + strings.TrimPrefix(bind, "0.0.0.0:")
+    } else if strings.HasPrefix(bind, "[::]:") {
+      addr = "127.0.0.1:" + strings.TrimPrefix(bind, "[::]:")
+    }
+    url := "http://" + addr + "/healthz"
+    hc := &http.Client{ Timeout: 2 * time.Second }
+    resp, err := hc.Get(url)
+    if err != nil || resp.StatusCode != http.StatusOK { os.Exit(1) }
+    os.Exit(0)
+  }
+
   d, err := db.Open(path); must(err)
   must(db.Migrate(ctx, d))
 
+  h := newRouter(d)
+  s := &http.Server{ Addr: bind, Handler: h, ReadTimeout: 10*time.Second, WriteTimeout: 20*time.Second }
+  must(s.ListenAndServe())
+}
+
+func must(err error){ if err != nil { panic(err) } }
+
+// newRouter builds the HTTP router so tests can exercise handlers.
+func newRouter(d *sqlx.DB) http.Handler {
   r := gin.New()
   r.Use(gin.Recovery())
   r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok":true}) })
@@ -33,25 +64,32 @@ func main() {
       Revelation *string `db:"revelation" json:"revelation,omitempty"`
       Verses int `db:"verses_count" json:"verses"`
     }
-    _ = d.Select(&rows, `SELECT number,name_ar,name_latin,revelation,verses_count FROM surah ORDER BY number`)
+    if err := d.SelectContext(c.Request.Context(), &rows, `SELECT number,name_ar,name_latin,revelation,verses_count FROM surah ORDER BY number`); err != nil {
+      c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return
+    }
     c.JSON(200, rows)
   })
   r.GET("/surah/:n", func(c *gin.Context) {
-    n := c.Param("n")
+    nStr := c.Param("n")
+    n, err := strconv.Atoi(nStr)
+    if err != nil || n < 1 || n > 114 {
+      c.JSON(http.StatusBadRequest, gin.H{"error": "invalid surah number"}); return
+    }
     var out []map[string]any
-    _ = d.Select(&out, `SELECT number as ayah, arabic, tajweed, trans, audio_url FROM ayah WHERE surah=? ORDER BY number`, n)
+    if err := d.SelectContext(c.Request.Context(), &out, `SELECT number as ayah, arabic, tajweed, trans, audio_url FROM ayah WHERE surah=? ORDER BY number`, n); err != nil {
+      c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return
+    }
     c.JSON(200, gin.H{"surah": n, "ayah": out})
   })
   r.GET("/search", func(c *gin.Context) {
-    q := c.Query("q")
-    rows, _ := db.SearchAyah(c, d, q, 50)
+    q := strings.TrimSpace(c.Query("q"))
+    if len(q) > 100 { c.JSON(http.StatusBadRequest, gin.H{"error": "query too long"}); return }
+    rows, err := db.SearchAyah(c.Request.Context(), d, q, 50)
+    if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
     c.JSON(200, gin.H{"q": q, "hits": rows})
   })
 
   h := httpx.CORS(r)
   h = httpx.RateLimit(h)
-  s := &http.Server{ Addr: bind, Handler: h, ReadTimeout: 10*time.Second, WriteTimeout: 20*time.Second }
-  must(s.ListenAndServe())
+  return h
 }
-
-func must(err error){ if err != nil { panic(err) } }

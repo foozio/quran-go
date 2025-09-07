@@ -63,8 +63,14 @@ func listSurah(d *sqlx.DB) {
 
 func getSurah(d *sqlx.DB, n int) {
   fmt.Printf("Surah %d\n", n)
-  type row struct{ Number int `db:"number"`; Arabic, Tajweed, Trans, Audio string `db:"arabic" db:"tajweed" db:"trans" db:"audio_url"` }
-  var rows []struct{ Number int `db:"number"`; Arabic, Tajweed, Trans, Audio string `db:"arabic" db:"tajweed" db:"trans" db:"audio_url"` }
+  type row struct{
+    Number int    `db:"number"`
+    Arabic string `db:"arabic"`
+    Tajweed string `db:"tajweed"`
+    Trans  string `db:"trans"`
+    Audio  string `db:"audio_url"`
+  }
+  var rows []row
   _ = d.Select(&rows, `SELECT number,arabic,tajweed,trans,audio_url FROM ayah WHERE surah=? ORDER BY number`, n)
   for _, a := range rows {
     fmt.Printf("%d:%d\n%s\n", n, a.Number, a.Arabic)
@@ -88,4 +94,3 @@ func stripHTML(s string) string {
 }
 
 func must(err error){ if err != nil { panic(err) } }
-

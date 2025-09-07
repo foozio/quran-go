@@ -31,17 +31,25 @@ func SearchAyah(ctx context.Context, db *sqlx.DB, q string, limit int) ([]struct
   Snip string `db:"snip"`
 }, error) {
   q = strings.TrimSpace(q)
-  if q == "" { q = "*" }
   var rows []struct{
     Surah int `db:"surah"`
     Number int `db:"number"`
     Snip string `db:"snip"`
   }
-  err := db.SelectContext(ctx, &rows, `
-    SELECT ayah.surah, ayah.number,
-      snippet(ayah_fts, 2, '<b>','</b>','…', 10) AS snip
-    FROM ayah_fts JOIN ayah ON ayah_fts.rowid = ayah.rowid
-    WHERE ayah_fts MATCH ?
-    LIMIT ?`, q, limit)
+  var err error
+  if q == "" {
+    err = db.SelectContext(ctx, &rows, `
+      SELECT ayah.surah, ayah.number,
+        snippet(ayah_fts, 2, '<b>','</b>','…', 10) AS snip
+      FROM ayah_fts JOIN ayah ON ayah_fts.rowid = ayah.rowid
+      LIMIT ?`, limit)
+  } else {
+    err = db.SelectContext(ctx, &rows, `
+      SELECT ayah.surah, ayah.number,
+        snippet(ayah_fts, 2, '<b>','</b>','…', 10) AS snip
+      FROM ayah_fts JOIN ayah ON ayah_fts.rowid = ayah.rowid
+      WHERE ayah_fts MATCH ?
+      LIMIT ?`, q, limit)
+  }
   return rows, err
 }

@@ -2,9 +2,13 @@ package main
 
 import (
   "context"
+  "flag"
   "html/template"
   "net/http"
+  "os"
   "strconv"
+  "strings"
+  "time"
 
   "github.com/jmoiron/sqlx"
   _ "modernc.org/sqlite"
@@ -133,12 +137,45 @@ var tpl = template.Must(template.New("base").Parse(`
 
 func main(){
   ctx := context.Background()
-  db, _ := sqlx.Open("sqlite", "quran.db")
+  selfcheck := flag.Bool("selfcheck", false, "run healthcheck and exit")
+  flag.Parse()
+
+  bind := os.Getenv("QURAN_BIND")
+  if bind == "" { bind = ":8090" }
+  path := os.Getenv("QURAN_DB_PATH")
+  if path == "" { path = "quran.db" }
+  db, err := sqlx.Open("sqlite", path)
+  if err != nil { panic(err) }
+  defer db.Close()
+  if *selfcheck {
+    addr := bind
+    if strings.HasPrefix(bind, ":") {
+      addr = "127.0.0.1" + bind
+    } else if strings.HasPrefix(bind, "0.0.0.0:") {
+      addr = "127.0.0.1:" + strings.TrimPrefix(bind, "0.0.0.0:")
+    } else if strings.HasPrefix(bind, "[::]:") {
+      addr = "127.0.0.1:" + strings.TrimPrefix(bind, "[::]:")
+    }
+    url := "http://" + addr + "/healthz"
+    hc := &http.Client{ Timeout: 2 * time.Second }
+    resp, err := hc.Get(url)
+    if err != nil || resp.StatusCode != http.StatusOK { os.Exit(1) }
+    os.Exit(0)
+  }
+  http.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request){
+    w.Header().Set("Content-Type","application/json")
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte(`{"ok":true}`))
+  })
   http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request){
     type srow struct{ Number int `db:"number"`; NameAr string `db:"name_ar"`}
     var list []srow
-    _ = db.Select(&list, `SELECT number,name_ar FROM surah ORDER BY number`)
-    _ = tpl.Execute(w, map[string]any{"Surah": list})
+    if err := db.SelectContext(r.Context(), &list, `SELECT number,name_ar FROM surah ORDER BY number`); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError); return
+    }
+    if err := tpl.Execute(w, map[string]any{"Surah": list}); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
   })
   http.HandleFunc("/s/", func(w http.ResponseWriter, r *http.Request){
     n, _ := strconv.Atoi(r.URL.Path[len("/s/"):])
@@ -150,7 +187,9 @@ func main(){
       Audio string `db:"audio_url"`
     }
     var rows []row
-    _ = db.Select(&rows, `SELECT number,arabic,tajweed,trans,audio_url FROM ayah WHERE surah=?`, n)
+    if err := db.SelectContext(r.Context(), &rows, `SELECT number,arabic,tajweed,trans,audio_url FROM ayah WHERE surah=?`, n); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError); return
+    }
     w.Header().Set("Content-Type","text/html; charset=utf-8")
     w.Write([]byte(`<div id="content">`))
     for _, a := range rows {
@@ -168,12 +207,14 @@ func main(){
     q := r.URL.Query().Get("q")
     type hit struct{ Surah, Number int; Snip string }
     hits := []hit{}
-    _ = db.Select(&hits, `
+    if err := db.SelectContext(r.Context(), &hits, `
       SELECT ayah.surah AS surah, ayah.number as number,
              snippet(ayah_fts, 2, '<mark>','</mark>','…', 10) AS snip
       FROM ayah_fts JOIN ayah ON ayah_fts.rowid = ayah.rowid
       WHERE ayah_fts MATCH ?
-      LIMIT 50`, q)
+      LIMIT 50`, q); err != nil {
+      http.Error(w, err.Error(), http.StatusInternalServerError); return
+    }
     w.Header().Set("Content-Type","text/html; charset=utf-8")
     if len(hits)==0 { w.Write([]byte("<em class='muted'>No results.</em>")); return }
     for _, h := range hits {
@@ -182,6 +223,6 @@ func main(){
         `Surah `+strconv.Itoa(h.Surah)+`:`+strconv.Itoa(h.Number)+`</a> — `+h.Snip+`</div>`))
     }
   })
-  _ = http.ListenAndServe(":8090", nil)
+  _ = http.ListenAndServe(bind, nil)
   _ = ctx
 }

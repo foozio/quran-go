@@ -1,11 +1,12 @@
 module github.com/foozio/quran-go
 
-go 1.22
+go 1.23.0
 
 require (
 	github.com/charmbracelet/bubbletea v0.26.6
 	github.com/gin-gonic/gin v1.10.0
 	github.com/jmoiron/sqlx v1.4.0
+	golang.org/x/time v0.12.0
 	modernc.org/sqlite v1.27.0
 )
 

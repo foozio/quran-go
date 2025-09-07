@@ -18,8 +18,17 @@ const (
   stateSurah
 )
 
-type surahRow struct{ Number int; NameAr string; Verses int }
-type ayahRow struct{ Number int; Arabic, Tajweed, Trans string }
+type surahRow struct{
+  Number int    `db:"number"`
+  NameAr string `db:"name_ar"`
+  Verses int    `db:"verses_count"`
+}
+type ayahRow struct{
+  Number int    `db:"number"`
+  Arabic string `db:"arabic"`
+  Tajweed string `db:"tajweed"`
+  Trans  string `db:"trans"`
+}
 
 type model struct {
   db   *sqlx.DB
@@ -30,6 +39,10 @@ type model struct {
   list     []surahRow
   cursor   int
   listOff  int
+
+  // status/error line
+  status   string
+  lastErr  string
 
   // surah view
   curSurah int
@@ -45,15 +58,25 @@ func initialModel(d *sqlx.DB) model {
 
 func (m *model) loadSurah() {
   var rows []surahRow
-  _ = m.db.Select(&rows, `SELECT number as Number, name_ar as NameAr, verses_count as Verses FROM surah ORDER BY number`)
+  if err := m.db.Select(&rows, `SELECT number, name_ar, verses_count FROM surah ORDER BY number`); err != nil {
+    m.lastErr = err.Error()
+  } else {
+    m.lastErr = ""
+  }
   m.list = rows
+  m.status = fmt.Sprintf("Loaded %d surah", len(rows))
 }
 
 func (m *model) loadAyah(n int) {
   m.curSurah = n
   var rows []ayahRow
-  _ = m.db.Select(&rows, `SELECT number as Number, arabic as Arabic, tajweed as Tajweed, trans as Trans FROM ayah WHERE surah=? ORDER BY number`, n)
+  if err := m.db.Select(&rows, `SELECT number, arabic, tajweed, trans FROM ayah WHERE surah=? ORDER BY number`, n); err != nil {
+    m.lastErr = err.Error()
+  } else {
+    m.lastErr = ""
+  }
   m.ayat = rows
+  m.status = fmt.Sprintf("Surah %d — %d ayah", n, len(rows))
 }
 
 func (m model) Init() tea.Cmd { return nil }
@@ -112,9 +135,18 @@ func (m model) viewList() string {
   b := &strings.Builder{}
   fmt.Fprintln(b, "Quran TUI — Surah list (↑/↓, Enter, q)")
   fmt.Fprintln(b, strings.Repeat("-", max(10, m.w)))
+  if m.lastErr != "" { fmt.Fprintln(b, "Err:", m.lastErr) }
+  if m.status != "" { fmt.Fprintln(b, m.status) }
+  if len(m.list) == 0 {
+    fmt.Fprintln(b, "No surah found. Ensure quran.db exists or run 'make seed'.")
+    return b.String()
+  }
   start := m.listOff
   end := len(m.list)
-  if m.h > 0 { if vv := start + (m.h - 4); vv < end { end = vv } }
+  // Determine visible window size; fall back to full list if unknown/small
+  maxVis := m.h - 4
+  if maxVis <= 0 { maxVis = end }
+  if vv := start + maxVis; vv < end { end = vv }
   for i := start; i < end; i++ {
     s := m.list[i]
     cur := "  "
@@ -158,4 +190,3 @@ func main() {
 }
 
 func must(err error){ if err != nil { panic(err) } }
-

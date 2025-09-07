@@ -1,15 +1,18 @@
 version: "3.9"
 services:
-  api:
-    build: .
-    image: quran-go:latest
-    container_name: quran-api
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.all
+    image: quran-all:latest
+    container_name: quran-all
     environment:
       - QURAN_DB_PATH=/data/quran.db
-      - QURAN_BIND=:8080
-    ports: ["8080:8080"]
+      - QURAN_API_BIND=:8080
+      - QURAN_WEB_BIND=:8090
+    ports: ["8080:8080","8090:8090"]
     volumes:
       - quran_data:/data
-    command: ["/usr/local/bin/quran-api"]
+
 volumes:
   quran_data: {}
