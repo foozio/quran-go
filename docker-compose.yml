@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  api:
+    build: .
+    image: quran-go:latest
+    container_name: quran-api
+    environment:
+      - QURAN_DB_PATH=/data/quran.db
+      - QURAN_BIND=:8080
+    ports: ["8080:8080"]
+    volumes:
+      - quran_data:/data
+    command: ["/usr/local/bin/quran-api"]
+volumes:
+  quran_data: {}

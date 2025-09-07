@@ -1,0 +1,22 @@
+syntax = "proto3";
+package quran;
+option go_package = "github.com/foozio/quran-go/cmd/quran-grpc/gen;quranpb";
+
+message Surah { int32 number=1; string name_ar=2; string name_latin=3; int32 verses=4; }
+message Ayah  { int32 surah=1; int32 number=2; string arabic=3; string tajweed=4; string trans=5; string audio_url=6; }
+
+message ListSurahReq {}
+message ListSurahResp { repeated Surah items=1; }
+
+message GetSurahReq { int32 number=1; }
+message GetSurahResp { repeated Ayah ayat=1; }
+
+message SearchReq { string q=1; int32 limit=2; }
+message SearchHit { int32 surah=1; int32 number=2; string snip=3; }
+message SearchResp { repeated SearchHit hits=1; }
+
+service Quran {
+  rpc ListSurah (ListSurahReq) returns (ListSurahResp);
+  rpc GetSurah  (GetSurahReq)  returns (GetSurahResp);
+  rpc Search    (SearchReq)    returns (SearchResp);
+}
