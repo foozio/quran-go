@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0f1115;
+  --card: #151821;
+  --muted: #a8b3cf;
+  --text: #e5e9f0;
+  --accent: #7aa2f7;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.font-ar {
+  font-family: 'UthmanicHafs', 'KFGQPC Uthmanic Script HAFS', 'Amiri Quran', 'Amiri', serif;
+}
+
+.card {
+  @apply rounded-xl bg-[#151821] border border-[#1c2233];
+}
+
+/* Uthmanic Hafs (place woff2/woff/ttf under web/static/fonts) */
+@font-face {
+  font-family: 'UthmanicHafs';
+  src: url('/fonts/uthmanic_hafs.woff2') format('woff2'),
+       url('/fonts/uthmanic_hafs.woff') format('woff'),
+       url('/fonts/uthmanic_hafs.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}

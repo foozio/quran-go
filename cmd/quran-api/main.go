@@ -75,7 +75,14 @@ func newRouter(d *sqlx.DB) http.Handler {
     if err != nil || n < 1 || n > 114 {
       c.JSON(http.StatusBadRequest, gin.H{"error": "invalid surah number"}); return
     }
-    var out []map[string]any
+    type row struct{
+      Ayah int `db:"ayah" json:"ayah"`
+      Arabic string `db:"arabic" json:"arabic"`
+      Tajweed string `db:"tajweed" json:"tajweed"`
+      Trans string `db:"trans" json:"trans"`
+      AudioURL string `db:"audio_url" json:"audio_url"`
+    }
+    var out []row
     if err := d.SelectContext(c.Request.Context(), &out, `SELECT number as ayah, arabic, tajweed, trans, audio_url FROM ayah WHERE surah=? ORDER BY number`, n); err != nil {
       c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return
     }
@@ -87,6 +94,41 @@ func newRouter(d *sqlx.DB) http.Handler {
     rows, err := db.SearchAyah(c.Request.Context(), d, q, 50)
     if err != nil { c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()}); return }
     c.JSON(200, gin.H{"q": q, "hits": rows})
+  })
+
+  // Stats endpoint: verifies content consistency at runtime
+  r.GET("/stats", func(c *gin.Context) {
+    type mismatch struct{
+      Surah int `db:"Surah" json:"surah"`
+      Verses int `db:"Verses" json:"verses"`
+      Ayah int `db:"Ayah" json:"ayah"`
+    }
+    var surahTotal, ayahTotal, tail int
+    if err := d.GetContext(c, &surahTotal, `SELECT COUNT(*) FROM surah`); err != nil {
+      c.JSON(500, gin.H{"error": err.Error()}); return
+    }
+    if err := d.GetContext(c, &ayahTotal, `SELECT COUNT(*) FROM ayah`); err != nil {
+      c.JSON(500, gin.H{"error": err.Error()}); return
+    }
+    if err := d.GetContext(c, &tail, `SELECT COUNT(*) FROM ayah WHERE surah BETWEEN 94 AND 114`); err != nil {
+      c.JSON(500, gin.H{"error": err.Error()}); return
+    }
+    rows := []mismatch{}
+    if err := d.SelectContext(c, &rows, `
+      SELECT s.number AS Surah, s.verses_count AS Verses,
+        (SELECT COUNT(*) FROM ayah a WHERE a.surah = s.number) AS Ayah
+      FROM surah s ORDER BY s.number`); err != nil {
+      c.JSON(500, gin.H{"error": err.Error()}); return
+    }
+    bad := []mismatch{}
+    for _, r := range rows { if r.Verses != r.Ayah { bad = append(bad, r) } }
+    c.JSON(200, gin.H{
+      "ok": surahTotal == 114 && len(bad) == 0,
+      "surah_total": surahTotal,
+      "ayah_total": ayahTotal,
+      "tail_94_114_ayah": tail,
+      "mismatches": bad,
+    })
   })
 
   h := httpx.CORS(r)

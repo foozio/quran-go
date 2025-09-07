@@ -26,15 +26,15 @@ func Migrate(ctx context.Context, db *sqlx.DB) error {
 }
 
 func SearchAyah(ctx context.Context, db *sqlx.DB, q string, limit int) ([]struct{
-  Surah int `db:"surah"`
-  Number int `db:"number"`
-  Snip string `db:"snip"`
+  Surah int `db:"surah" json:"surah"`
+  Number int `db:"number" json:"number"`
+  Snip string `db:"snip" json:"snip"`
 }, error) {
   q = strings.TrimSpace(q)
   var rows []struct{
-    Surah int `db:"surah"`
-    Number int `db:"number"`
-    Snip string `db:"snip"`
+    Surah int `db:"surah" json:"surah"`
+    Number int `db:"number" json:"number"`
+    Snip string `db:"snip" json:"snip"`
   }
   var err error
   if q == "" {

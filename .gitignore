@@ -6,4 +6,7 @@ bin/
 .DS_Store
 .idea/
 .vscode/
+web/node_modules/
+web/.svelte-kit/
+web/build/
 /dist

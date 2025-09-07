@@ -5,7 +5,7 @@ DB_PATH ?= quran.db
 
 .PHONY: help
 help:
-	@echo "Targets: deps seed seed.data api web tui cli lint test sec vuln fmt docker.up docker.down precommit deploy undeploy"
+	@echo "Targets: deps seed seed.data verify api web tui cli lint test sec vuln fmt docker.up docker.down precommit deploy undeploy"
 
 deps:
 	go mod tidy
@@ -51,12 +51,15 @@ precommit:
 
 deploy:
 	$(MAKE) seed.data
+	QURAN_DB_PATH=./data/quran.db $(MAKE) verify
 	docker compose build && docker compose up -d
 
 undeploy:
 	docker compose down -v
 
 seed.data:
-	$(MAKE) seed
 	mkdir -p data
-	cp -f quran.db data/quran.db
+	QURAN_DB_PATH=./data/quran.db $(MAKE) seed
+
+verify:
+	QURAN_DB_PATH=$(or $(QURAN_DB_PATH),quran.db) go run ./cmd/quran-verify
