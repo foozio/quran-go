@@ -2,7 +2,7 @@
 
 Beautiful, hackable Qur'an tooling in Go: REST API, Web UI, CLI, and TUI — backed by SQLite + FTS5 search. Seeded from the excellent `semarketir/quranjson` dataset.
 
-<img alt="Full Snack Developers" src="docs/assets/full-snack-developers.png" height="28" />
+<img alt="Full Snack Developers" src="docs/assets/full-snack-developers.png" height="72" />
 
 ![Go](https://img.shields.io/badge/Go-1.22-blue)
 ![CI](https://github.com/foozio/quran-go/actions/workflows/ci.yml/badge.svg)
