@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.22 AS build
+FROM golang:1.23 AS build
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod     --mount=type=cache,target=/root/.cache/go-build     go build -o /out/quran-api ./cmd/quran-api

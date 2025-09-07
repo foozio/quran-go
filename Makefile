@@ -5,7 +5,7 @@ DB_PATH ?= quran.db
 
 .PHONY: help
 help:
-	@echo "Targets: deps seed api web tui cli lint test sec vuln fmt docker.up docker.down precommit"
+	@echo "Targets: deps seed seed.data api web tui cli lint test sec vuln fmt docker.up docker.down precommit deploy undeploy"
 
 deps:
 	go mod tidy
@@ -50,7 +50,13 @@ precommit:
 	pre-commit install
 
 deploy:
+	$(MAKE) seed.data
 	docker compose build && docker compose up -d
 
 undeploy:
 	docker compose down -v
+
+seed.data:
+	$(MAKE) seed
+	mkdir -p data
+	cp -f quran.db data/quran.db

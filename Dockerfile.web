@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM golang:1.22 AS build
+FROM golang:1.23 AS build
 WORKDIR /app
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -16,4 +16,3 @@ EXPOSE 8090
 USER 65532:65532
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 CMD ["/usr/local/bin/quran-web","-selfcheck"]
 ENTRYPOINT ["/usr/local/bin/quran-web"]
-
