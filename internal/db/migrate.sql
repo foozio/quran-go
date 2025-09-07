@@ -20,11 +20,9 @@ CREATE TABLE IF NOT EXISTS ayah (
   FOREIGN KEY (surah) REFERENCES surah(number) ON DELETE CASCADE
 );
 
--- FTS for search across Arabic & translation
 CREATE VIRTUAL TABLE IF NOT EXISTS ayah_fts
 USING fts5(surah, number, arabic, trans, content='ayah', content_rowid='rowid');
 
--- triggers to keep FTS in sync
 CREATE TRIGGER IF NOT EXISTS ayah_ai AFTER INSERT ON ayah BEGIN
   INSERT INTO ayah_fts(rowid,surah,number,arabic,trans)
   VALUES (new.rowid, new.surah, new.number, new.arabic, new.trans);

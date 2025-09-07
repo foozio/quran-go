@@ -1,0 +1,29 @@
+repos:
+- repo: https://github.com/gitleaks/gitleaks
+  rev: v8.18.2
+  hooks: [{ id: gitleaks, stages: [commit, push] }]
+
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+    - id: check-merge-conflict
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+
+- repo: local
+  hooks:
+    - id: go-fmt
+      name: go fmt
+      entry: bash -c 'go fmt ./...'
+      language: system
+      files: \.go$
+    - id: go-staticcheck
+      name: staticcheck
+      entry: bash -c 'staticcheck ./...'
+      language: system
+      pass_filenames: false
+    - id: go-test
+      name: go test
+      entry: bash -c 'go test ./...'
+      language: system
+      pass_filenames: false

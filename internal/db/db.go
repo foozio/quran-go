@@ -32,7 +32,11 @@ func SearchAyah(ctx context.Context, db *sqlx.DB, q string, limit int) ([]struct
 }, error) {
   q = strings.TrimSpace(q)
   if q == "" { q = "*" }
-  rows := []struct{ Surah, Number int; Snip string }{}
+  var rows []struct{
+    Surah int `db:"surah"`
+    Number int `db:"number"`
+    Snip string `db:"snip"`
+  }
   err := db.SelectContext(ctx, &rows, `
     SELECT ayah.surah, ayah.number,
       snippet(ayah_fts, 2, '<b>','</b>','…', 10) AS snip

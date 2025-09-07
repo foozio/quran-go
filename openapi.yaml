@@ -1,0 +1,86 @@
+openapi: 3.0.3
+info:
+  title: Quran API
+  version: "0.1.0"
+servers:
+  - url: http://localhost:8080
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      responses:
+        "200": { description: OK }
+  /surah:
+    get:
+      summary: List surah
+      responses:
+        "200":
+          description: Surah list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Surah'
+  /surah/{n}:
+    get:
+      summary: Get ayah for a surah
+      parameters:
+        - in: path
+          name: n
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 114 }
+      responses:
+        "200":
+          description: Ayah list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  surah: { type: integer }
+                  ayah:
+                    type: array
+                    items: { $ref: '#/components/schemas/Ayah' }
+  /search:
+    get:
+      summary: Search ayah (Arabic or translation)
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  q: { type: string }
+                  hits:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        surah: { type: integer }
+                        number: { type: integer }
+                        snip: { type: string }
+components:
+  schemas:
+    Surah:
+      type: object
+      properties:
+        number: { type: integer }
+        name_ar: { type: string }
+        name_latin: { type: string, nullable: true }
+        revelation: { type: string, nullable: true }
+        verses: { type: integer }
+    Ayah:
+      type: object
+      properties:
+        ayah: { type: integer }
+        arabic: { type: string }
+        tajweed: { type: string }
+        trans: { type: string }
+        audio_url: { type: string, format: uri }

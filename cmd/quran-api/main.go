@@ -3,21 +3,27 @@ package main
 import (
   "context"
   "net/http"
+  "os"
   "time"
 
   "github.com/gin-gonic/gin"
-  "github.com/jmoiron/sqlx"
   "github.com/foozio/quran-go/internal/db"
+  "github.com/foozio/quran-go/internal/httpx"
 )
 
 func main() {
   ctx := context.Background()
-  d, err := db.Open("quran.db"); must(err)
-  must(db.Migrate(ctx, d))
-  // Initial ingest (id translations). In production, run `quran-indexer` separately.
-  // _ = data.IngestAll(ctx, d, "id")
 
-  r := gin.Default()
+  bind := os.Getenv("QURAN_BIND")
+  if bind == "" { bind = ":8080" }
+  path := os.Getenv("QURAN_DB_PATH")
+  if path == "" { path = "quran.db" }
+
+  d, err := db.Open(path); must(err)
+  must(db.Migrate(ctx, d))
+
+  r := gin.New()
+  r.Use(gin.Recovery())
   r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"ok":true}) })
   r.GET("/surah", func(c *gin.Context) {
     var rows []struct{
@@ -42,7 +48,10 @@ func main() {
     c.JSON(200, gin.H{"q": q, "hits": rows})
   })
 
-  s := &http.Server{ Addr: ":8080", Handler: r, ReadTimeout: 10*time.Second, WriteTimeout: 20*time.Second }
+  h := httpx.CORS(r)
+  h = httpx.RateLimit(h)
+  s := &http.Server{ Addr: bind, Handler: h, ReadTimeout: 10*time.Second, WriteTimeout: 20*time.Second }
   must(s.ListenAndServe())
 }
+
 func must(err error){ if err != nil { panic(err) } }

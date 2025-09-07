@@ -15,5 +15,5 @@ type Ayah struct {
     Tajweed string `json:"tajweed,omitempty"`
     Trans   string `json:"translation,omitempty"`
     Juz     int    `json:"juz"`
-    Audio   string `json:"audio,omitempty"` // URL
+    Audio   string `json:"audio,omitempty"`
 }
